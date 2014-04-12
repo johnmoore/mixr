@@ -3,7 +3,8 @@ var io = require('socket.io').listen(42069, {log: true});
 var clients = [];
 var groups = [];
 var sockets = {};
-var piePieceMap = [];
+var ready = {};
+var games = {};
 
 
 io.sockets.on('connection', function(client){
@@ -11,20 +12,69 @@ io.sockets.on('connection', function(client){
     console.log('joined');
     client.myid = -1;
     
-    client.on('message', function(msg, err){
-        /*console.log(i);
-        i=i+1;
-        k = Object.keys(io.sockets.manager.roomClients[client.id]);
-        if (k[1] != undefined) {
-            chan = k[1].substring(1, k[1].length);
-           client.broadcast.to(chan).emit('message', msg);
-        }*/
+    client.on('ready', function(data){
+        ready[client.myid] = true;
+        var i = 0;
+        var checkgroup = -1;
+        for (i=0; i<groups.length; i++) {
+            if (groups[i].indexOf(client.myid) >= 0) {
+                checkgroup = i;
+                break;
+            }
+        }
+        if (checkgroup < 0) {
+            return; //should never happen
+        }
+        var pass = true;
+        for (i=0; i<groups[checkgroup].length; i++) {
+            if (ready[groups[checkgroup][i]] == false) {
+                pass = false;
+            }
+        }
+        if (pass && groups[checkgroup].length >= 2) {
+            //begin game
+            var head = [];
+            var gc = [];
+            for (j=0; j<groups[checkgroup].length; j++) {
+                sockets[groups[checkgroup][j]].join(groups[checkgroup][0]);
+                sockets[groups[checkgroup][j]].gameid = groups[checkgroup][0];
+                head.push(0);
+                sockets[groups[checkgroup][j]].playerid = j;
+                gc.push(sockets[groups[checkgroup][j]]);
+            }
+            console.log("Pre-group:");
+            console.log(groups);
+            games[groups[checkgroup][0]] = {players: groups[checkgroup], headings: head, headnum: 0, piecemap: null, gameclients: gc};
+            groups.splice(checkgroup, 1);
+            console.log("Started game. Games:");
+            console.log(games);
+            console.log("Groups:");
+            console.log(groups);
+            for (j=0; j<groups[checkgroup].length; j++) {
+                sockets[groups[checkgroup][j]].emit('start', groups[checkgroup].length);
+            }
+        }
+    });
+
+    client.on('swipesend', function(data){
+        var recipient = games[client.gameid].piecemap[data.quadrant];
+        var c = games[client.gameid].gameclients[recipient];
+        c.emit('swiperecv', data.swipedata);
+    });
+
+    client.on('heading', function(data){
+        games[client.gameid].headings[client.playerid] = data.heading;
+        games[client.gameid].headnum += 1;
+        if (games[client.gameid].headnum == games[client.gameid].players.length) {
+            games[client.gameid].piecemap = setupPiePieces(games[client.gameid].headings);
+        }
     });
 
     client.on('recon', function(data) {
         if (data.myid) {
             client.myid = data.myid;
             sockets[client.myid] = client;
+            ready[client.myid] = false;
         }
         var foundid = -1;
         var i = 0;
@@ -73,10 +123,6 @@ io.sockets.on('connection', function(client){
         console.log(groups);
     });
 
-    client.on('subscribe', function(data) { 
-        client.join(data.room); 
-    });
-
  });
 
 function updateClientCounts() {
@@ -92,6 +138,7 @@ function updateClientCounts() {
 function setupPiePieces(angles) {
     //copy the array for good measure
     //go through the array
+    var piePieceMap = [];
     for (var i = 0; i < angles.length; i++) {
         var me = i;
         var toSort = [];
@@ -108,6 +155,7 @@ function setupPiePieces(angles) {
         var array = toSort.slice(0);
         piePieceMap.push(array);
     }
+    return piePieceMap;
 }
 
 function custom_compare (a,b) {
