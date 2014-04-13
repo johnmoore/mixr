@@ -343,9 +343,9 @@ function responseFromPHP(responseString) {
             for (var fbid in resultObject[user]) {
                 if (typeof resultObject[user][fbid] !== 'function') {
                     pool[fbid] = [user,[]];
+                    allids[fbid] = resultObject[user][fbid];
                 }
             }
-            allids = allids.concat(resultObject[user]);
         }
     }
     if (gameid < 0) {
