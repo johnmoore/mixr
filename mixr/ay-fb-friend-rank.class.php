@@ -43,8 +43,10 @@ class AyFbFriendRank
 			'friends'			=> 'fql?q=SELECT uid, name, birthday_date, sex, political, activities, interests FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1 = me())',
 			'mutual_friends'	=> 'fql?q=SELECT uid, mutual_friend_count FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=me())',
 			'feed'				=> 'fql?q=SELECT actor_id, target_id, likes, comments FROM stream WHERE source_id=me() LIMIT 50',
-			'albums'			=> 'fql?q=SELECT aid FROM album WHERE owner=me()',
-			'inbox'				=> 'me/inbox'
+			//'albums'			=> 'fql?q=SELECT aid FROM album WHERE owner=me()',
+			'inbox'				=> 'me/inbox',
+			'friend_likes'		=> 'fql?q=SELECT page_id, name FROM page WHERE page_id IN (SELECT page_id FROM page_fan WHERE uid IN (SELECT uid2 FROM friend WHERE uid1 = me()))'
+
 			/*array
 			(
 				'name'			=> 'photos',
@@ -96,38 +98,38 @@ class AyFbFriendRank
 		}
 		
 		// handle photos
-		$batch			= array();
+		// $batch			= array();
 		
-		$batch[]		= 'me/photos?fields=from,tags,likes,comments';
+		// $batch[]		= 'me/photos?fields=from,tags,likes,comments';
 		
-		if(!empty($response['albums']['data']))
-		{
-			foreach($response['albums']['data'] as $album)
-			{
-				$batch[]	= $album['aid'] . '/photos?fields=from,tags,likes,comments';
-			}
-		}
+		// if(!empty($response['albums']['data']))
+		// {
+		// 	foreach($response['albums']['data'] as $album)
+		// 	{
+		// 		$batch[]	= $album['aid'] . '/photos?fields=from,tags,likes,comments';
+		// 	}
+		// }
 		
-		$photos			= array();
+		// $photos			= array();
 		
-		foreach($this->batch($batch) as $album_photos)
-		{
-			if(!empty($album_photos['error']))
-			{
-				continue;
-			}
+		// foreach($this->batch($batch) as $album_photos)
+		// {
+		// 	if(!empty($album_photos['error']))
+		// 	{
+		// 		continue;
+		// 	}
 		
-			// avoid photo duplicates
-			foreach($album_photos['data'] as $photo)
-			{
-				$photos[$photo['id']]	= $photo;
-			}
-		}
+		// 	// avoid photo duplicates
+		// 	foreach($album_photos['data'] as $photo)
+		// 	{
+		// 		$photos[$photo['id']]	= $photo;
+		// 	}
+		// }
 		
-		foreach($photos as $photo)
-		{
-			$this->handlePhoto($photo);
-		}
+		// foreach($photos as $photo)
+		// {
+		// 	$this->handlePhoto($photo);
+		// }
 	
 		// Regardles of whether `read_stream` permission is available we still have
 		// access to user's feed.
@@ -135,6 +137,14 @@ class AyFbFriendRank
 		{
 			$this->handleFeed($feed);
 		}
+
+		// if(empty($response['friend_likes']['error']))
+		// {
+		// 	foreach($response['friend_likes']['data'] as $friend)
+		// 	{			
+		// 		// $this->$friend['uid'], 'friend_mutual', $friend['mutual_friend_count']);
+		// 	}
+		// }
 		
 		return $this->sortFriends();
 	}
