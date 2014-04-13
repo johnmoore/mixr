@@ -340,9 +340,10 @@ function responseFromPHP(responseString) {
             continue;
         }
         if (typeof resultObject[user] !== 'function') {
-            console.log("Key is " + user + ", value is" + resultObject[user]);
-            for (var i = resultObject[user].length - 1; i >= 0; i--) {
-                pool[resultObject[user][i]] = [user,[]];
+            for (var fbid in resultObject[user]) {
+                if (typeof resultObject[user][fbid] !== 'function') {
+                    pool[fbid] = [user,[]];
+                }
             }
             allids = allids.concat(resultObject[user]);
         }
