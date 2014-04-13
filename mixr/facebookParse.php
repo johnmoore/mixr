@@ -4,7 +4,10 @@ header('Content-Type: application/json');
 $data = file_get_contents('php://input');
 $json = json_decode($data);
 $idsAndTokens = $json->{'persons'}; // {persons: [{"id":11932418, "token":SADAMadsfjheaDFJ}, {"id":11932418, "token":SADAMadsfjheaDFJ}], {gameid: id}}
-
+$gender_pref = $json->{'gender'};
+if ($gender_pref != "male" || $gender_pref != "female") {
+  $gender_pref = "";
+}
 //facebook SDK info
 define("FB_APP_ID","659591790761064");
 define("FB_APP_SECRET","9ab91a92941afac12d290b2122693cf1");
@@ -51,15 +54,28 @@ for ($i = 0; $i < count($idsAndTokens); $i++) {
             
           }
           else {
-            $selectedFriends[$user][$friends[$idx]["uid"]] = $friends[$idx]["name"];
-            //echo $friends[$idx]["name"] . "\r\n";
-            $allSelectedFriends[$friends[$idx]["uid"]] = $friends[$idx]["name"];
-            $response = $facebook->api(
-              "/".$friends[$idx]["uid"]."/likes/"
-            );
-            $num_page_likes = count($response["data"]);
-            if ($num_page_likes > 0) {
-              $selectedFriends[$user][$friends[$idx]["uid"]] = $friends[$idx]["name"].chr(7).$response["data"][mt_rand(0,$num_page_likes-1)]["name"].", ".$response["data"][mt_rand(0,$num_page_likes-1)]["name"].", ".$response["data"][mt_rand(0,$num_page_likes-1)]["name"];            
+            if ($gender_pref == "male") {
+              if ($friends[$idx]["sex"] == "male") {
+                goto add;
+              }
+            }
+            else if ($gender_pref == "female") {
+              if ($friends[$idx]["sex"] == "female") {
+                goto add;
+              }
+            }
+            else {
+              add:
+              $selectedFriends[$user][$friends[$idx]["uid"]] = $friends[$idx]["name"];
+              //echo $friends[$idx]["name"] . "\r\n";
+              $allSelectedFriends[$friends[$idx]["uid"]] = $friends[$idx]["name"];
+              $response = $facebook->api(
+                "/".$friends[$idx]["uid"]."/likes/"
+              );
+              $num_page_likes = count($response["data"]);
+              if ($num_page_likes > 0) {
+                $selectedFriends[$user][$friends[$idx]["uid"]] = $friends[$idx]["name"].chr(7).$response["data"][mt_rand(0,$num_page_likes-1)]["name"].", ".$response["data"][mt_rand(0,$num_page_likes-1)]["name"].", ".$response["data"][mt_rand(0,$num_page_likes-1)]["name"];            
+              }
             }
           }
           $idx += mt_rand(1,3);
