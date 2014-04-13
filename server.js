@@ -3,10 +3,10 @@ var io = require('socket.io').listen(42069, {log: true});
 var clients = [];
 var groups = [];
 var sockets = {};
-var ready = {};
+var status = {};
 var games = {};
 var fbdata = {};
-var pool = {};
+
 
 io.sockets.on('connection', function(client){
 
@@ -15,7 +15,7 @@ io.sockets.on('connection', function(client){
 
     client.on('ready', function(data){
         console.log("ready from " + client.myid);
-        ready[client.myid] = true;
+        status[client.myid].ready = true;
         fbdata[client.myid] = data.fbdata;
         var i = 0;
         var checkgroup = -1;
@@ -30,10 +30,10 @@ io.sockets.on('connection', function(client){
             console.log("error!!");
             return; //should never happen
         }
-        console.log(ready);
+        console.log(status);
         var pass = true;
         for (i=0; i<groups[checkgroup].length; i++) {
-            if (ready[groups[checkgroup][i]] == false) {
+            if (status[groups[checkgroup][i]] == undefined || status[groups[checkgroup][i]].ready == false) {
                 pass = false;
                 console.log("pass false");
             }
@@ -53,7 +53,7 @@ io.sockets.on('connection', function(client){
             }
             console.log("Pre-group:");
             console.log(groups);
-            games[groups[checkgroup][0]] = {players: groups[checkgroup], headings: head, headnum: 0, piecemap: null, gameclients: gc};
+            games[groups[checkgroup][0]] = {players: groups[checkgroup], headings: head, headnum: 0, piecemap: null, gameclients: gc, pool: null, allids: null};
             console.log("Started game. Games:");
             console.log(games);
             console.log("Groups:");
@@ -67,7 +67,7 @@ io.sockets.on('connection', function(client){
                 totaldata.push(fbdata[groups[checkgroup][i]]);
             }
             console.log("totaldata here: " + totaldata);
-            postToPHP(totaldata);
+            postToPHP(totaldata, groups[checkgroup][0]);
             groups.splice(checkgroup, 1);
         }
     });
@@ -133,21 +133,36 @@ io.sockets.on('connection', function(client){
         console.log("number:" + data.heading);
         games[client.gameid].headings[client.playerid] = data.heading;
         games[client.gameid].headnum += 1;
+        status[client.myid].heading = true;
         if (games[client.gameid].headnum == games[client.gameid].players.length) {
             console.log("headings all arrived, making piecemap");
             games[client.gameid].piecemap = setupPiePieces(games[client.gameid].headings);
         }
+        checkIfStart(client.gameid);
+    });
+
+    client.on('loaded', function(data){
+        console.log("loaded received:" + data);
+        status[client.myid].loaded = true;
+        checkIfStart(client.gameid);
     });
 
     client.on('recon', function(data) {
         if (data.myid) {
             client.myid = data.myid;
             sockets[client.myid] = client;
-            if (ready[client.myid] != true) {
-                ready[client.myid] = false;
+            if (status[client.myid] == undefined || status[client.myid] == null) {
+                status[client.myid] = {};
+                status[client.myid].ready = false;
+                status[client.myid].heading = false;
+                status[client.myid].loaded = false;
+            } else if (status[client.myid].ready != true) {
+                status[client.myid].ready = false;
+                status[client.myid].heading = false;
+                status[client.myid].loaded = false;
             }
         }   
-        console.log(ready);
+        console.log(status);
         var foundid = -1;
         var i = 0;
         for (i = 0; i<clients.length; i++) {
@@ -295,29 +310,61 @@ function findiPhone(idTable, id) {
     return {id: id, see:[]};
 }
 
+function checkIfStart(gameid) {
+    var i = 0;
+    cont = true;
+    for (i=0; i<games[gameid].players.length; i++) {
+        if (status[games[gameid].players[i]].loaded == false || status[games[gameid].players[i]].heading == false) {
+            cont = false;
+        }
+    }
+    if (cont) {
+        var i = 0;
+        for (i=0; i<games[gameid].players.length; i++) {
+            sockets[games[gameid].players[i]].emit('play', true);
+        }
+    }
+}
+
 function responseFromPHP(responseString) {
+    console.log(responseString);
     var resultObject = JSON.parse(responseString);
     console.log(responseString);
     //instantiate the group friend pool
+    var pool = {};
+    var gameid = -1;
+    allids = [];
     for (var user in resultObject) {
+        if (user == "gameid") {
+            gameid = resultObject[user];
+            continue;
+        }
         if (typeof resultObject[user] !== 'function') {
             console.log("Key is " + user + ", value is" + resultObject[user]);
             for (var i = resultObject[user].length - 1; i >= 0; i--) {
                 pool[resultObject[user][i]] = [user,[]];
             }
+            allids = allids.concat(resultObject[user]);
         }
     }
-
+    if (gameid < 0) {
+        return;
+    }
+    games[gameid].allids = allids;
+    games[gameid].pool = pool;
     //TODO emit appropriate data to each iphone (10 close friends, all friends)
-    
+    var i = 0;
+    for (i=0; i<games[gameid].players.length; i++) {
+        sockets[games[gameid].players[i]].emit('ids', {all: allids, mine: resultObject[fbdata[games[gameid].players[i]].id]});
+    }
 }
 
-function postToPHP(jsonstr) {
+function postToPHP(jsonstr, gid) {
 var http = require('http');
 
-
+jsonstr = {persons: jsonstr, gameid: gid};
 var userString = JSON.stringify(jsonstr);
-
+console.log(userString);
 var headers = {
   'Content-Type': 'application/json',
   'Content-Length': userString.length
