@@ -15,6 +15,9 @@ io.sockets.on('connection', function(client){
 
     client.on('ready', function(data){
         console.log("ready from " + client.myid);
+        if (status[client.myid] == undefined || status[client.myid] == null) {
+            status[client.myid] = {};
+        }
         status[client.myid].ready = true;
         fbdata[client.myid] = data.fbdata;
         var i = 0;
@@ -90,9 +93,12 @@ io.sockets.on('connection', function(client){
 
     client.on('liked', function(data){
         delete pool[data.id];
-        var gameOver = checkIfGameOver();
+        var gameOver = checkIfGameOver(client.gameid);
         if (gameOver) {
-            //TODO
+            var i = 0;
+            for (i=0; i<games[gameid].players.length; i++) {
+                sockets[games[gameid].players[i]].emit('gameover', true);
+            }
             return;
         }
     });
@@ -110,22 +116,24 @@ io.sockets.on('connection', function(client){
         console.log("gameid: " + client.gameid);
         console.log(games[client.gameid].gameclients);
 
-        if (pool[data.id][1].indexOf(recipient) != -1) {
-            delete pool[data.id];
-            var gameOver = checkIfGameOver();
+        if (games[client.gameid].pool[data.id][1].indexOf(recipient) != -1) {
+            delete games[client.gameid].pool[data.id];
+            var gameOver = checkIfGameOver(client.gameid);
             if (gameOver) {
-                //TODO
+                var i = 0;
+                for (i=0; i<games[gameid].players.length; i++) {
+                    sockets[games[gameid].players[i]].emit('gameover', true);
+                }
                 return;
             }
         }
         else {
-            if (pool[data.id][0] != recipient) {
-                pool[data.id][1].push(recipient);
+            if (games[client.gameid].pool[data.id][0] != recipient) {
+                games[client.gameid].pool[data.id][1].push(recipient);
             }
+            var c = games[client.gameid].gameclients[recipient];
+            c.emit('recvPerson', data.id);
         }
-
-        var c = games[client.gameid].gameclients[recipient];
-        c.emit('swiperecv', data.swipedata);
     });
 
     client.on('heading', function(data){
@@ -222,8 +230,8 @@ function updateClientCounts() {
     }
 }
 
-function checkIfGameOver() {
-    var size = Object.size(pool);
+function checkIfGameOver(gid) {
+    var size = Object.size(games[gid].pool);
     if (size <= 0) {
         return true;
     }
@@ -314,11 +322,11 @@ function checkIfStart(gameid) {
     var i = 0;
     cont = true;
     for (i=0; i<games[gameid].players.length; i++) {
-        if (status[games[gameid].players[i]].loaded == false || status[games[gameid].players[i]].heading == false) {
+        if (status[games[gameid].players[i]].loaded != true || status[games[gameid].players[i]].heading != true) {
             cont = false;
         }
     }
-    if (cont) {
+    if (cont == true) {
         var i = 0;
         for (i=0; i<games[gameid].players.length; i++) {
             sockets[games[gameid].players[i]].emit('play', true);
@@ -333,7 +341,7 @@ function responseFromPHP(responseString) {
     //instantiate the group friend pool
     var pool = {};
     var gameid = -1;
-    allids = [];
+    allids = {};
     for (var user in resultObject) {
         if (user == "gameid") {
             gameid = resultObject[user];
