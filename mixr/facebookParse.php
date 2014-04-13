@@ -45,7 +45,7 @@ for ($i = 0; $i < count($idsAndTokens); $i++) {
         //print_r($friends);
         // $allRanks[$user] = $friends;
 
-        $idx = 0;
+        $idx = mt_rand(1,4);
         while (count($selectedFriends[$user]) < 10) {
           if (array_key_exists($friends[$idx]["uid"], $allSelectedFriends) || in_array($friends[$idx]["uid"], $usingIds)) {
             
@@ -54,8 +54,15 @@ for ($i = 0; $i < count($idsAndTokens); $i++) {
             $selectedFriends[$user][$friends[$idx]["uid"]] = $friends[$idx]["name"];
             //echo $friends[$idx]["name"] . "\r\n";
             $allSelectedFriends[$friends[$idx]["uid"]] = $friends[$idx]["name"];
+            $response = $facebook->api(
+              "/".$friends[$idx]["uid"]."/likes/"
+            );
+            $num_page_likes = count($response["data"]);
+            if ($num_page_likes > 0) {
+              $selectedFriends[$user][$friends[$idx]["uid"]] = $friends[$idx]["name"].chr(7).$response["data"][mt_rand(0,$num_page_likes-1)]["name"].", ".$response["data"][mt_rand(0,$num_page_likes-1)]["name"].", ".$response["data"][mt_rand(0,$num_page_likes-1)]["name"];            
+            }
           }
-          $idx += 1;
+          $idx += mt_rand(1,3);
         }
     }
     else {

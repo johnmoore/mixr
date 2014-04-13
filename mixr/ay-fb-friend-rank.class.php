@@ -40,7 +40,7 @@ class AyFbFriendRank
 	{		
 		$response	= $this->batch(array(
 			'me'				=> 'fql?q=SELECT uid, birthday_date FROM user WHERE uid=me()',
-			'friends'			=> 'fql?q=SELECT uid, name, birthday_date FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1 = me())',
+			'friends'			=> 'fql?q=SELECT uid, name, birthday_date, sex, political, activities, interests FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1 = me())',
 			'mutual_friends'	=> 'fql?q=SELECT uid, mutual_friend_count FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=me())',
 			'feed'				=> 'fql?q=SELECT actor_id, target_id, likes, comments FROM stream WHERE source_id=me() LIMIT 50',
 			'albums'			=> 'fql?q=SELECT aid FROM album WHERE owner=me()',
