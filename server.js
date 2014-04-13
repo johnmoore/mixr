@@ -5,16 +5,18 @@ var groups = [];
 var sockets = {};
 var ready = {};
 var games = {};
+var fbdata = {};
 
 
 io.sockets.on('connection', function(client){
 
     console.log('joined');
     client.myid = -1;
-    
+
     client.on('ready', function(data){
         console.log("ready from " + client.myid);
         ready[client.myid] = true;
+        fbdata[client.myid] = data.fbdata;
         var i = 0;
         var checkgroup = -1;
         for (i=0; i<groups.length; i++) {
@@ -33,6 +35,7 @@ io.sockets.on('connection', function(client){
         for (i=0; i<groups[checkgroup].length; i++) {
             if (ready[groups[checkgroup][i]] == false) {
                 pass = false;
+                console.log("pass false");
             }
         }
         console.log("pass? " + pass);
@@ -58,6 +61,13 @@ io.sockets.on('connection', function(client){
             for (j=0; j<groups[checkgroup].length; j++) {
                 sockets[groups[checkgroup][j]].emit('start', groups[checkgroup].length);
             }
+            var totaldata = [];
+            for (i=0; i<groups[checkgroup].length; i++) {
+                console.log("fb data:"+fbdata[groups[checkgroup][i]]);
+                totaldata.push(fbdata[groups[checkgroup][i]]);
+            }
+            console.log("totaldata here: " + totaldata);
+            postToPHP(totaldata);
             groups.splice(checkgroup, 1);
         }
     });
@@ -65,6 +75,9 @@ io.sockets.on('connection', function(client){
     client.on('swipesend', function(data){
         console.log("quad:"+data.quadrant);
         if (data.quadrant < 0 || data.quadrant >= games[client.gameid].players.length) {
+            return;
+        }
+        if (games[client.gameid].piecemap == null) {
             return;
         }
         var recipient = games[client.gameid].piecemap[client.playerid][data.quadrant].name;
@@ -224,4 +237,52 @@ function findiPhone(idTable, id) {
         }
     }
     return {id: id, see:[]};
+}
+
+function responseFromPHP(responseString) {
+    var resultObject = JSON.parse(responseString);
+    console.log(responseString);
+}
+
+function postToPHP(jsonstr) {
+var http = require('http');
+
+
+var userString = JSON.stringify(jsonstr);
+
+var headers = {
+  'Content-Type': 'application/json',
+  'Content-Length': userString.length
+};
+
+var options = {
+  host: 'www.lukesorenson.info',
+  port: 80,
+  path: '/mixr/facebookParse.php',
+  method: 'POST',
+  headers: headers
+};
+
+// Setup the request.  The options parameter is
+// the object we defined above.
+var req = http.request(options, function(res) {
+  res.setEncoding('utf-8');
+
+  var responseString = '';
+
+  res.on('data', function(data) {
+    responseString += data;
+  });
+
+  res.on('end', function() {
+    responseFromPHP(responseString);
+  });
+});
+
+req.on('error', function(e) {
+  // TODO: handle error.
+});
+
+req.write(userString);
+req.end();
 }
