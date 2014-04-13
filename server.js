@@ -6,7 +6,7 @@ var sockets = {};
 var ready = {};
 var games = {};
 var fbdata = {};
-
+var pool = {};
 
 io.sockets.on('connection', function(client){
 
@@ -72,7 +72,32 @@ io.sockets.on('connection', function(client){
         }
     });
 
-    client.on('swipesend', function(data){
+    // client.on('swipesend', function(data){
+    //     console.log("quad:"+data.quadrant);
+    //     if (data.quadrant < 0 || data.quadrant >= games[client.gameid].players.length) {
+    //         return;
+    //     }
+    //     if (games[client.gameid].piecemap == null) {
+    //         return;
+    //     }
+    //     var recipient = games[client.gameid].piecemap[client.playerid][data.quadrant].name;
+    //     console.log("recipient: "+recipient);
+    //     console.log("gameid: " + client.gameid);
+    //     console.log(games[client.gameid].gameclients);
+    //     var c = games[client.gameid].gameclients[recipient];
+    //     c.emit('swiperecv', data.swipedata);
+    // });
+
+    client.on('liked', function(data){
+        delete pool[data.id];
+        var gameOver = checkIfGameOver();
+        if (gameOver) {
+            //TODO
+            return;
+        }
+    });
+
+    client.on('sendPerson', function(data){
         console.log("quad:"+data.quadrant);
         if (data.quadrant < 0 || data.quadrant >= games[client.gameid].players.length) {
             return;
@@ -84,6 +109,21 @@ io.sockets.on('connection', function(client){
         console.log("recipient: "+recipient);
         console.log("gameid: " + client.gameid);
         console.log(games[client.gameid].gameclients);
+
+        if (pool[data.id][1].indexOf(recipient) != -1) {
+            delete pool[data.id];
+            var gameOver = checkIfGameOver();
+            if (gameOver) {
+                //TODO
+                return;
+            }
+        }
+        else {
+            if (pool[data.id][0] != recipient) {
+                pool[data.id][1].push(recipient);
+            }
+        }
+
         var c = games[client.gameid].gameclients[recipient];
         c.emit('swiperecv', data.swipedata);
     });
@@ -167,6 +207,22 @@ function updateClientCounts() {
     }
 }
 
+function checkIfGameOver() {
+    var size = Object.size(pool);
+    if (size <= 0) {
+        return true;
+    }
+    return false;
+}
+
+Object.size = function(obj) {
+    var size = 0, key;
+    for (key in obj) {
+        if (obj.hasOwnProperty(key)) size++;
+    }
+    return size;
+};
+
 function setupPiePieces(angles) {
     //copy the array for good measure
     //go through the array
@@ -242,6 +298,18 @@ function findiPhone(idTable, id) {
 function responseFromPHP(responseString) {
     var resultObject = JSON.parse(responseString);
     console.log(responseString);
+    //instantiate the group friend pool
+    for (var user in resultObject) {
+        if (typeof resultObject[user] !== 'function') {
+            console.log("Key is " + user + ", value is" + resultObject[user]);
+            for (var i = resultObject[user].length - 1; i >= 0; i--) {
+                pool[resultObject[user][i]] = [user,[]];
+            }
+        }
+    }
+
+    //TODO emit appropriate data to each iphone (10 close friends, all friends)
+    
 }
 
 function postToPHP(jsonstr) {
