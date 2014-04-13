@@ -3,7 +3,7 @@ ob_start("ob_gzhandler");
 header('Content-Type: application/json');
 $data = file_get_contents('php://input');
 $json = json_decode($data);
-$idsAndTokens = $json; // [{"id":11932418, "token":SADAMadsfjheaDFJ}, {"id":11932418, "token":SADAMadsfjheaDFJ}]
+$idsAndTokens = $json->{'persons'}; // {persons: [{"id":11932418, "token":SADAMadsfjheaDFJ}, {"id":11932418, "token":SADAMadsfjheaDFJ}], {gameid: id}}
 
 //facebook SDK info
 define("FB_APP_ID","659591790761064");
@@ -11,11 +11,6 @@ define("FB_APP_SECRET","9ab91a92941afac12d290b2122693cf1");
 
 require './facebook-php-sdk/src/facebook.php';
 include 'ay-fb-friend-rank.class.php';
-
-$facebook = new Facebook(array(
-    'appId'  => FB_APP_ID,
-    'secret' => FB_APP_SECRET,
-));
 
 $usingIds = array();
 
@@ -32,6 +27,10 @@ for ($i = 0; $i < count($idsAndTokens); $i++) {
     $FBaccessToken = $idsAndTokens[$i]->{"token"};
 
     //echo $FBaccessToken . "\r\n";
+    $facebook = new Facebook(array(
+      'appId'  => FB_APP_ID,
+      'secret' => FB_APP_SECRET,
+    ));
 
     $facebook->setAccessToken($FBaccessToken);
 
@@ -43,16 +42,18 @@ for ($i = 0; $i < count($idsAndTokens); $i++) {
         $fbRanker = new AyFbFriendRank($facebook);
         $friends = $fbRanker->getFriends();
 
+        //print_r($friends);
         // $allRanks[$user] = $friends;
 
         $idx = 0;
         while (count($selectedFriends[$user]) < 10) {
-          if (array_search($friends[$idx]["uid"], $allSelectedFriends) && array_search($friends[$idx]["uid"], $usingIds)) {
+          if (array_key_exists($friends[$idx]["uid"], $allSelectedFriends) || in_array($friends[$idx]["uid"], $usingIds)) {
             
           }
           else {
-            array_push($selectedFriends[$user], $friends[$idx]["uid"]);
-            array_push($allSelectedFriends, $friends[$idx]["uid"]);
+            $selectedFriends[$user][$friends[$idx]["uid"]] = $friends[$idx]["name"];
+            //echo $friends[$idx]["name"] . "\r\n";
+            $allSelectedFriends[$friends[$idx]["uid"]] = $friends[$idx]["name"];
           }
           $idx += 1;
         }
@@ -64,6 +65,8 @@ for ($i = 0; $i < count($idsAndTokens); $i++) {
     }
 }
 
-print_r($selectedFriends);
+$selectedFriends['gameid'] = $json->{'gameid'};
+
+echo json_encode($selectedFriends);
 
 ?>

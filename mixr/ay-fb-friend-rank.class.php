@@ -3,14 +3,14 @@ class AyFbFriendRank
 {
 	private $criteria					= array
 	(
-		'feed_like'						=> 1,
-		'feed_comment'					=> 1,
+		'feed_like'						=> 5,
+		'feed_comment'					=> 5,
 		'feed_addressed'				=> 1,
-		'photo_tagged_friend_by_user'	=> 1,
-		'photo_tagged_user_by_friend'	=> 1,
+		'photo_tagged_friend_by_user'	=> 5,
+		'photo_tagged_user_by_friend'	=> 5,
 		'photo_like'					=> 1,
 		'photo_comment'					=> 1,
-		'friend_mutual'					=> .125,
+		'friend_mutual'					=> .01,
 		'inbox_in_conversation'			=> .5,
 		'inbox_chat'					=> .125
 	);
@@ -42,7 +42,7 @@ class AyFbFriendRank
 			'me'				=> 'fql?q=SELECT uid, birthday_date FROM user WHERE uid=me()',
 			'friends'			=> 'fql?q=SELECT uid, name, birthday_date FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1 = me())',
 			'mutual_friends'	=> 'fql?q=SELECT uid, mutual_friend_count FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=me())',
-			'feed'				=> 'fql?q=SELECT actor_id, target_id, likes, comments FROM stream WHERE source_id=me() LIMIT 500',
+			'feed'				=> 'fql?q=SELECT actor_id, target_id, likes, comments FROM stream WHERE source_id=me() LIMIT 50',
 			'albums'			=> 'fql?q=SELECT aid FROM album WHERE owner=me()',
 			'inbox'				=> 'me/inbox'
 			/*array
