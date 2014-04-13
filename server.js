@@ -13,6 +13,7 @@ io.sockets.on('connection', function(client){
     client.myid = -1;
     
     client.on('ready', function(data){
+        console.log("ready from " + client.myid);
         ready[client.myid] = true;
         var i = 0;
         var checkgroup = -1;
@@ -22,16 +23,21 @@ io.sockets.on('connection', function(client){
                 break;
             }
         }
+        console.log("checkgroup: " + checkgroup);
         if (checkgroup < 0) {
+            console.log("error!!");
             return; //should never happen
         }
+        console.log(ready);
         var pass = true;
         for (i=0; i<groups[checkgroup].length; i++) {
             if (ready[groups[checkgroup][i]] == false) {
                 pass = false;
             }
         }
+        console.log("pass? " + pass);
         if (pass && groups[checkgroup].length >= 2) {
+            console.log("begin");
             //begin game
             var head = [];
             var gc = [];
@@ -45,7 +51,6 @@ io.sockets.on('connection', function(client){
             console.log("Pre-group:");
             console.log(groups);
             games[groups[checkgroup][0]] = {players: groups[checkgroup], headings: head, headnum: 0, piecemap: null, gameclients: gc};
-            groups.splice(checkgroup, 1);
             console.log("Started game. Games:");
             console.log(games);
             console.log("Groups:");
@@ -53,19 +58,30 @@ io.sockets.on('connection', function(client){
             for (j=0; j<groups[checkgroup].length; j++) {
                 sockets[groups[checkgroup][j]].emit('start', groups[checkgroup].length);
             }
+            groups.splice(checkgroup, 1);
         }
     });
 
     client.on('swipesend', function(data){
-        var recipient = games[client.gameid].piecemap[data.quadrant];
+        console.log("quad:"+data.quadrant);
+        if (data.quadrant < 0 || data.quadrant >= games[client.gameid].players.length) {
+            return;
+        }
+        var recipient = games[client.gameid].piecemap[client.playerid][data.quadrant].name;
+        console.log("recipient: "+recipient);
+        console.log("gameid: " + client.gameid);
+        console.log(games[client.gameid].gameclients);
         var c = games[client.gameid].gameclients[recipient];
         c.emit('swiperecv', data.swipedata);
     });
 
     client.on('heading', function(data){
+        console.log("heading received:" + data);
+        console.log("number:" + data.heading);
         games[client.gameid].headings[client.playerid] = data.heading;
         games[client.gameid].headnum += 1;
         if (games[client.gameid].headnum == games[client.gameid].players.length) {
+            console.log("headings all arrived, making piecemap");
             games[client.gameid].piecemap = setupPiePieces(games[client.gameid].headings);
         }
     });
@@ -74,8 +90,11 @@ io.sockets.on('connection', function(client){
         if (data.myid) {
             client.myid = data.myid;
             sockets[client.myid] = client;
-            ready[client.myid] = false;
-        }
+            if (ready[client.myid] != true) {
+                ready[client.myid] = false;
+            }
+        }   
+        console.log(ready);
         var foundid = -1;
         var i = 0;
         for (i = 0; i<clients.length; i++) {
